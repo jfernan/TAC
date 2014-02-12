@@ -1,0 +1,260 @@
+import java_cup.runtime.*;
+
+/* Terminales */
+terminal            	MAS, MENOS, POR, DIV, MENOSUNARIO, MASMAS;
+terminal            	AP, CP, AL, CL;
+terminal            	IF, ELSE;
+terminal            	WHILE, DO;
+terminal            	FOR;
+terminal            	PYC;
+terminal	    	ASIG;
+terminal	    	EQUAL, NOTEQUAL, LT, LE, GT, GE;
+terminal		NOT, OR, AND;
+terminal	    	PRINT;
+terminal String		IDENT;
+terminal Integer    	NUMERO;
+
+/* No terminales */
+non terminal         	listaSent;
+non terminal String 	exp;
+non terminal String 	sent;
+non terminal         	sentIf;
+non terminal EtiqRedir	parteIf;
+non terminal         	parteElse;
+non terminal         	sentWhile;
+non terminal EtiqRedir	parteWhile;
+non terminal		sentDoWhile;
+non terminal EtiqRedir	parteDo;
+non terminal         	sentFor;
+non terminal EtiqRedir	parteFor;
+non terminal DosEtiq 	cond;
+
+/* Precedencia */
+precedence nonassoc IF;
+precedence nonassoc ELSE;
+precedence left NOT, AND, OR;
+precedence left NOTEQUAL, EQUAL, GT, LT, GE, LE;
+precedence left ASIG;
+precedence left MAS, MENOS;
+precedence left POR, DIV;
+precedence left MENOSUNARIO;
+
+/* Gramatica */
+listaSent	::= listaSent sent      
+            	| sent 
+            	;
+
+/************** EXPRESIONES **************/
+exp      	::= exp:e1 MAS exp:e2     	{:  	String t = Generador.nuevaTemp();
+				        		Generador.gc(Generador.MAS, e1, e2, t);
+							RESULT = t;
+			 	    		:}
+            	| exp:e1 MENOS exp:e2   	{:  	String t = Generador.nuevaTemp();
+				        		Generador.gc(Generador.MENOS, e1, e2, t);
+							RESULT = t;
+			 	    		:}
+            	| exp:e1 POR exp:e2     	{:  	String t = Generador.nuevaTemp();
+				        		Generador.gc(Generador.POR, e1, e2, t);
+							RESULT = t;
+			 	    		:}
+            	| exp:e1 DIV exp:e2     	{:  	String t = Generador.nuevaTemp();
+				        		Generador.gc(Generador.DIV, e1, e2, t);
+							RESULT = t;
+			 	    		:}
+	    	| MENOS exp:e1          	{:  	String t = Generador.nuevaTemp();
+				        		Generador.gc(Generador.MENOS, "0", e1, t);
+							RESULT = t;
+			 	    		:} %prec MENOSUNARIO
+ 
+	    	| IDENT:i1 ASIG exp:e2  	{: 	
+							Generador.gc(Generador.ASIG, e2, null, i1);
+							RESULT = i1; 
+						:}
+
+		| IDENT:i1 MASMAS		{:
+							String t = Generador.nuevaTemp();
+							Generador.gc(Generador.ASIG, i1, null, t);
+							Generador.gc(Generador.MAS, i1, "1", i1);
+							RESULT = t;
+						:}
+            	| AP exp:e1 CP          	{: RESULT = e1; :}
+	        | IDENT:i1              	{: RESULT = i1; :}
+	    	| NUMERO:n              	{: RESULT = n.toString(); :}
+	    	;
+
+
+/************** SENTENCIAS **************/
+
+sent		::= exp:e1 PYC			{: RESULT = e1; :}
+		| AL listaSent:s CL		{: :} 
+		| PRINT AP exp:e CP PYC		{: 
+							Generador.gc(Generador.PRINT, null, null, e);
+						:}
+		| sentIf			{: :}
+		| sentWhile			{: :}
+		| sentDoWhile			{: :}
+		| sentFor			{: :}
+		;
+
+/************** IF  **************/
+
+sentIf		::= parteIf:et cond:c CP 		{:
+                    					Generador.gc(Generador.LABEL, null, null, c.v());
+                				:} 
+					sent 
+						{:      
+							String fin = Generador.nuevaEtiq();
+							et.fin(fin);           
+                    					Generador.gc(Generador.GOTO, null, null, et.fin());
+                    					Generador.gc(Generador.LABEL, null, null, c.f());
+                				:}  
+					parteElse 
+						{:
+                    					Generador.gc(Generador.LABEL, null, null, et.fin());
+                				:}
+		;
+parteIf   	::= IF AP 			{:
+						    	RESULT = new EtiqRedir(null, null);
+               					:}
+		;
+parteElse	::= ELSE sent 			{: :} 
+    		| 				{: :}
+            	;
+
+/************** WHILE **************/
+
+sentWhile	::= parteWhile:et		{:
+						    	Generador.gc(Generador.LABEL, null, null, et.ini());
+						:}
+					cond:c CP 
+						{:
+							Generador.gc(Generador.LABEL, null, null, c.v());
+						:}
+					sent	
+						{:
+							Generador.gc(Generador.GOTO, null, null, et.ini());
+							Generador.gc(Generador.LABEL, null, null, c.f());
+						:} 
+		;
+
+parteWhile 	::= WHILE AP 			{:
+							String ini = Generador.nuevaEtiq();
+						    	String fin = Generador.nuevaEtiq();
+						    	RESULT = new EtiqRedir(ini, fin);
+						:}
+		;
+
+/************** DOWHILE **************/
+
+sentDoWhile	::= parteDo:et 			{:
+							Generador.gc(Generador.LABEL, null, null, et.ini());
+						:}
+
+					sent WHILE AP cond:c CP PYC 
+						
+						{:
+							Generador.gc(Generador.LABEL, null, null, c.v());
+							Generador.gc(Generador.GOTO, null, null, et.ini());
+							Generador.gc(Generador.LABEL, null, null, c.f());
+						:}
+		;
+
+parteDo		::= DO				{:
+							String ini = Generador.nuevaEtiq();
+							RESULT = new EtiqRedir(ini, null);
+						:}
+		;
+
+/************** FOR **************/
+
+
+sentFor		::= parteFor:et AP exp:e1 PYC	{:
+							Generador.gc(Generador.LABEL, null, null, et.ini());
+
+						:}
+				cond:c PYC	{:
+							Generador.gc(Generador.LABEL, null, null, et.fin());
+						:}
+				exp:e2 CP	{:
+							Generador.gc(Generador.GOTO, null, null, et.ini());
+							Generador.gc(Generador.LABEL, null, null, c.v());
+						:}
+				sent		{:
+							Generador.gc(Generador.GOTO, null, null, et.fin());
+							Generador.gc(Generador.LABEL, null, null, c.f());
+						:}
+		;
+
+parteFor	::= FOR				{:
+							String ini = Generador.nuevaEtiq();
+							String fin = Generador.nuevaEtiq();
+							RESULT = new EtiqRedir(ini, fin);
+						:}
+		;
+
+/************** CONDICIONES **************/
+
+cond 		::= exp:e1 EQUAL exp:e2		{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFEQ, e1, e2, v);
+							Generador.gc(Generador.GOTO, null, null, f);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| exp:e1 NOTEQUAL exp:e2	{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFEQ, e1, e2, f);
+							Generador.gc(Generador.GOTO, null, null, v);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| exp:e1 LT exp:e2		{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFLT, e1, e2, v);
+							Generador.gc(Generador.GOTO, null, null, f);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| exp:e1 LE exp:e2		{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFLT, e2, e1, f);
+							Generador.gc(Generador.GOTO, null, null, v);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| exp:e1 GT exp:e2		{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFLT, e2, e1, v);
+							Generador.gc(Generador.GOTO, null, null, f);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| exp:e1 GE exp:e2		{:
+							String v = Generador.nuevaEtiq();
+							String f = Generador.nuevaEtiq();
+							Generador.gc(Generador.IFLT, e1, e2, f);
+							Generador.gc(Generador.GOTO, null, null, v);
+                                                        RESULT = new DosEtiq(v, f);
+						:}
+		| NOT cond:c			{:
+							RESULT = new DosEtiq(c.f(), c.v());
+						:}                 
+
+
+		| cond:c1 OR 			{:
+							Generador.gc(Generador.LABEL, null, null, c1.f());
+						:}
+				cond:c2		{:
+							Generador.gc(Generador.LABEL, null, null, c1.v());
+							Generador.gc(Generador.GOTO, null, null, c2.v());
+							RESULT = new DosEtiq(c2.v(), c2.f());
+						:}
+		| cond:c1 AND			{:
+							Generador.gc(Generador.LABEL, null, null, c1.v());
+						:} 
+				cond:c2		{:
+							Generador.gc(Generador.LABEL, null, null, c1.f());
+							Generador.gc(Generador.GOTO, null, null, c2.f());
+							RESULT = new DosEtiq(c2.v(), c2.f());
+						:}
+		;
