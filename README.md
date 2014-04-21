@@ -17,7 +17,8 @@ Está formado por una secuencia de sentencias de código de tres direcciones, te
 
 El siguiente código fuente 
 
-```x = 1;
+```
+x = 1;
 y = 2;
 r = s = 3;
 sum = x+y+r+s;
