@@ -24,7 +24,7 @@ sum = x+y+r+s;
 print (sum-(r+s)/2);
 ```
 
-da como resultado el siguiente código en tres direcciones, cuya ejecución imprimiría el valor ```6``: 
+da como resultado el siguiente código en tres direcciones, cuya ejecución imprimiría el valor ```6```: 
 
 ```
    x = 1;
@@ -53,7 +53,8 @@ if ( x == 0 ) {
 }
 print(-2);
 ```
-da como resultado el siguiente código en tres direcciones, cuya ejecución imprimiría los valores ```-1`` y ```-2```:
+
+da como resultado el siguiente código en tres direcciones, cuya ejecución imprimiría los valores ```-1``` y ```-2```:
 
 ```
    if (x == 0) goto L0;
